@@ -11,4 +11,4 @@
                  [rosuda/rserveengine "1.8-0"]
                  [rosuda/rengine "1.8-0"]]
   ;; for rengine
-  :local-repo "repo")
+  :repositories {"project" "file:repo"})
