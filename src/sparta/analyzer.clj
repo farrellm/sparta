@@ -36,9 +36,12 @@
     (macroexpand-1 form))
   )
 
+(defn create-var [form env]
+  form)
+
 (defn analyze [form env]
   (binding [ana/macroexpand-1 *macroexpand-1
-            #_(ana/create-var    create-var)
+            ana/create-var   create-var
             ana/parse         ana/-parse
             ana/var?          var?]
     (env/ensure (global-env)
@@ -89,6 +92,9 @@
       (->> ast :args (map emit-form) (join (str op)))
       (str (emit-form f)
            "(" (->> ast :args (map emit-form) (join ", ")) ")"))))
+
+(defmethod emit-form :def [ast]
+  (str (:var ast) " <<- " (-> ast :init emit-form)))
 
 (defmethod emit-form :default [ast]
   {:default ast})

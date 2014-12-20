@@ -16,4 +16,5 @@
     (is (= "(function (x) { x })" (emit-form (analyze '(fn [x] x) {}))))
     (is (= "(function (x) { x })(0)" (emit-form (analyze '(let [x 0] x) {}))))
     (is (= "1+2" (emit-form (analyze '(+ 1 2) {}))))
+    (is (= "x <<- 8") (emit-form (analyze '(def x 8) {})))
     ))
