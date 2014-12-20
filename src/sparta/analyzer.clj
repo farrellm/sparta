@@ -92,21 +92,3 @@
 
 (defmethod emit-form :default [ast]
   {:default ast})
-
-(comment
-  (prn (analyze '(let [x 0] x) {}))
-  (analyze '(let [x 0] x) {})
-
-  (analyze '(if a b c) {})
-  (analyze '(if-not a b c) {})
-  (analyze '(when a b) {})
-
-  (analyze '(def a 8) {})
-
-  (macroexpand-1 '(fn [x] 1 x))
-
-  (macroexpand-1 '(if-not a b c))
-
-  (macroexpand-1 '(a. b c))
-  (analyze '(. a b c) {})
-  (analyze '(a b c) {}))
