@@ -19,22 +19,7 @@
   (ana/analyze form env))
 
 (defn *macroexpand-1 [form env]
-  (cond
-    (seq? form)
-    (let [[op & args] form]
-      (match op
-        'let* (let [[_ bindings & exprs] form]
-                (if (seq bindings)
-                  (let [[name val & rest] bindings]
-                    (if (seq rest)
-                      `((fn [~name] (let [~@rest] ~@exprs)) ~val)
-                      `((fn [~name] ~@exprs) ~val)))
-                  `(~'do ~@exprs)))
-        _     (macroexpand-1 form)))
-    
-    :else
-    (macroexpand-1 form))
-  )
+  (macroexpand-1 form))
 
 (defn create-var [form env]
   form)
@@ -47,54 +32,66 @@
     (env/ensure (global-env)
                 (run-passes (-analyze form env)))))
 
-(def emit-form nil)
-(defmulti emit-form
+(defmulti -emit-form
   (fn [ast]
     (if-let [type (:type ast)]
       type
       (if-let [op (:op ast)]
         op
         []))))
-(defmethod emit-form :number [ast]
+(defmethod -emit-form :number [ast]
   (str (:val ast)))
-(defmethod emit-form :string [ast]
+(defmethod -emit-form :string [ast]
   (str "'" (:val ast) "'"))
-(defmethod emit-form :keyword [ast]
+(defmethod -emit-form :keyword [ast]
   (str "'" (:val ast) "'"))
-(defmethod emit-form :maybe-class [ast]
+(defmethod -emit-form :maybe-class [ast]
   (str (:class ast)))
-(defmethod emit-form :vector [ast]
-  (apply str "list(" (join ", " (mapcat emit-form (:items ast))) ")"))
+(defmethod -emit-form :vector [ast]
+  (apply str "list(" (join ", " (mapcat -emit-form (:items ast))) ")"))
 
-(defmethod emit-form :with-meta [ast]
-  (-> ast :expr emit-form))
+(defmethod -emit-form :with-meta [ast]
+  (-> ast :expr -emit-form))
 
-(defmethod emit-form :fn [ast]
+(defmethod -emit-form :fn [ast]
   (when-not (= 1 (-> ast :methods count))
     (throw (RuntimeException. "only functions of a single arity supported")))
 
   (let [method (-> ast :methods first)]
     (str "(function (" (join ", " (map :name (:params method))) ") "
-         (-> ast :methods first :body emit-form)
+         (-> ast :methods first :body -emit-form)
          ")")))
 
-(defmethod emit-form :local [ast]
+(defmethod -emit-form :local [ast]
   (str (:name ast)))
 
-(defmethod emit-form :do [ast]
+(defmethod -emit-form :do [ast]
   (str "{ " (->> (-> ast :statements  (conj (-> ast :ret)))
-              (map emit-form) (join "; ")) " }"))
+              (map -emit-form) (join "; ")) " }"))
 
-(defmethod emit-form :invoke [ast]
+(defmethod -emit-form :let [ast]
+  (str "{ "
+       (join "; " (concat (->> ast :bindings (map #(str (:name %) " <- " (-> % :init -emit-form))))
+                          [(-> ast :body -emit-form)]))
+       " }"))
+
+(defmethod -emit-form :invoke [ast]
   (let [f (-> ast :fn)]
     (if-let [op (and (-> f :op (= :maybe-class)) (-> f )
                      (-> f :class (infix-ops)))]
-      (->> ast :args (map emit-form) (join (str op)))
-      (str (emit-form f)
-           "(" (->> ast :args (map emit-form) (join ", ")) ")"))))
+      (->> ast :args (map -emit-form) (join (str op)))
+      (str (-emit-form f)
+           "(" (->> ast :args (map -emit-form) (join ", ")) ")"))))
 
-(defmethod emit-form :def [ast]
-  (str (:var ast) " <<- " (-> ast :init emit-form)))
+(defmethod -emit-form :def [ast]
+  (str (:var ast) " <<- " (-> ast :init -emit-form)))
 
-(defmethod emit-form :default [ast]
+(defmethod -emit-form :default [ast]
   {:default ast})
+
+(defn emit-form [ast]
+  (str (-emit-form ast) (if (:top-level ast)
+                          "; " nil)))
+
+(emit-form (analyze '8 {}))
+(emit-form (analyze '(do 8 9) {}))
