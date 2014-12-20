@@ -19,18 +19,22 @@
   (ana/analyze form env))
 
 (defn *macroexpand-1 [form env]
-  (macroexpand-1 form))
+  (match [form]
+    [(['ns n] :seq)] n
+    :else (macroexpand-1 form)))
 
 (defn create-var [form env]
   form)
 
-(defn analyze [form env]
-  (binding [ana/macroexpand-1 *macroexpand-1
-            ana/create-var   create-var
-            ana/parse         ana/-parse
-            ana/var?          var?]
-    (env/ensure (global-env)
-                (run-passes (-analyze form env)))))
+(defn analyze
+  ([form] (analyze form {}))
+  ([form env]
+   (binding [ana/macroexpand-1 *macroexpand-1
+             ana/create-var    create-var
+             ana/parse         ana/-parse
+             ana/var?          var?]
+     (env/ensure (global-env)
+                 (run-passes (-analyze form env))))))
 
 (defmulti -emit-form
   (fn [ast]
@@ -86,12 +90,17 @@
 (defmethod -emit-form :def [ast]
   (str (:var ast) " <<- " (-> ast :init -emit-form)))
 
+(defmethod -emit-form :host-call [ast]
+  (if (= '- (-> ast :target :class))
+    (str (:method ast) "("
+         (->> ast :args (map -emit-form) (join ", ")) ")")
+    (str "as.environment('" (-> ast :target :class) "')$"
+         (:method ast) "("
+         (->> ast :args (map -emit-form) (join ", ")) ")")))
+
 (defmethod -emit-form :default [ast]
-  {:default ast})
+  [ast])
 
 (defn emit-form [ast]
   (str (-emit-form ast) (if (:top-level ast)
                           "; " nil)))
-
-(emit-form (analyze '8 {}))
-(emit-form (analyze '(do 8 9) {}))

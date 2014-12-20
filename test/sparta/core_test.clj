@@ -18,4 +18,7 @@
     (is (= "{ x <- 1; y <- 8; { x+y } }; " (emit-form (analyze '(let [x 1 y 8] (+ x y)) {}))))
     (is (= "1+2; " (emit-form (analyze '(+ 1 2) {}))))
     (is (= "x <<- 8; ") (emit-form (analyze '(def x 8) {})))
+    (is (= "sqrt(8); " (emit-form (analyze '(.sqrt - 8) {}))))
+    (is (= "as.environment('package:stats')$sqrt(8); "
+           (emit-form (analyze '(.sqrt package:stats 8) {}))))
     ))
